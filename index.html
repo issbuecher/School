@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lernplattform</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+        /* Login */
+        .login-container {
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; gap: 40px; flex-wrap: wrap; padding: 20px;
+        }
+        .login-card {
+            background: #fff; border-radius: 16px; padding: 40px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
+            width: 300px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .login-card:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
+        .login-card .icon { font-size: 60px; margin-bottom: 16px; }
+        .login-card h2 { font-size: 24px; margin-bottom: 8px; color: #333; }
+        .login-card p { color: #777; font-size: 14px; }
+        .login-card input {
+            margin-top: 16px; padding: 10px 16px; border: 2px solid #ddd;
+            border-radius: 8px; font-size: 14px; width: 100%; outline: none;
+        }
+        .login-card input:focus { border-color: #4a90d9; }
+        .login-card button {
+            margin-top: 12px; padding: 10px 32px; border: none; border-radius: 8px;
+            font-size: 16px; cursor: pointer; color: #fff; transition: background 0.2s;
+        }
+        .btn-host { background: #4a90d9; }
+        .btn-host:hover { background: #3a7bc8; }
+        .btn-student { background: #27ae60; }
+        .btn-student:hover { background: #219a52; }
+        .error { color: #e74c3c; font-size: 13px; margin-top: 8px; display: none; }
+
+        /* App Layout */
+        .app { display: none; }
+        .navbar {
+            background: #fff; padding: 16px 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .navbar h1 { font-size: 20px; color: #333; }
+        .navbar .role-badge {
+            padding: 4px 14px; border-radius: 20px; font-size: 13px;
+            font-weight: 600; color: #fff;
+        }
+        .role-host { background: #4a90d9; }
+        .role-student { background: #27ae60; }
+        .navbar button {
+            padding: 8px 20px; border: 2px solid #e74c3c; background: none;
+            color: #e74c3c; border-radius: 8px; cursor: pointer; font-size: 14px;
+        }
+        .navbar button:hover { background: #e74c3c; color: #fff; }
+        .nav-right { display: flex; align-items: center; gap: 12px; }
+
+        /* Tabs */
+        .tabs {
+            display: flex; gap: 0; background: #fff; margin: 24px 32px 0;
+            border-radius: 12px 12px 0 0; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .tab {
+            flex: 1; padding: 14px; text-align: center; cursor: pointer;
+            font-weight: 600; color: #888; border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab:hover { color: #333; background: #f8f9fa; }
+        .tab.active { color: #4a90d9; border-bottom-color: #4a90d9; background: #f0f7ff; }
+
+        /* Content */
+        .content { margin: 0 32px 32px; background: #fff; padding: 24px; border-radius: 0 0 12px 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); min-height: 400px; }
+
+        /* Form */
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 600; color: #555; }
+        .form-group input, .form-group textarea {
+            width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0;
+            border-radius: 8px; font-size: 14px; font-family: inherit; outline: none;
+        }
+        .form-group input:focus, .form-group textarea:focus { border-color: #4a90d9; }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .submit-btn {
+            padding: 12px 32px; background: #4a90d9; color: #fff; border: none;
+            border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: 600;
+        }
+        .submit-btn:hover { background: #3a7bc8; }
+
+        /* Cards */
+        .offers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .offer-card {
+            border: 2px solid #e8ecf1; border-radius: 12px; padding: 20px;
+            transition: box-shadow 0.2s; position: relative;
+        }
+        .offer-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .offer-card .category-tag {
+            display: inline-block; padding: 3px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 700; color: #fff; margin-bottom: 10px;
+        }
+        .tag-arbeit { background: #e67e22; }
+        .tag-hausaufgaben { background: #9b59b6; }
+        .tag-buecher { background: #1abc9c; }
+        .offer-card h3 { font-size: 16px; color: #333; margin-bottom: 8px; }
+        .offer-card .desc { color: #666; font-size: 14px; line-height: 1.5; margin-bottom: 12px; }
+        .offer-card .price { font-size: 22px; font-weight: 700; color: #27ae60; }
+        .offer-card .delete-btn {
+            position: absolute; top: 12px; right: 12px; background: none;
+            border: none; color: #ccc; cursor: pointer; font-size: 18px;
+        }
+        .offer-card .delete-btn:hover { color: #e74c3c; }
+        .empty { text-align: center; color: #aaa; padding: 60px 20px; font-size: 16px; }
+
+        .success-msg {
+            background: #d4edda; color: #155724; padding: 12px 16px;
+            border-radius: 8px; margin-bottom: 16px; display: none;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div class="login-container" id="loginScreen">
+    <div class="login-card">
+        <div class="icon">&#127891;</div>
+        <h2>Student</h2>
+        <p>Angebote durchsuchen</p>
+        <button class="btn-student" onclick="loginStudent()">Einloggen</button>
+    </div>
+    <div class="login-card">
+        <div class="icon">&#127968;</div>
+        <h2>Host</h2>
+        <p>Angebote verwalten</p>
+        <input type="password" id="hostPassword" placeholder="Passwort eingeben" onkeydown="if(event.key==='Enter')loginHost()">
+        <div class="error" id="hostError">Falsches Passwort!</div>
+        <button class="btn-host" onclick="loginHost()">Einloggen</button>
+    </div>
+</div>
+
+<!-- App -->
+<div class="app" id="app">
+    <nav class="navbar">
+        <h1>&#128218; Lernplattform</h1>
+        <div class="nav-right">
+            <span class="role-badge" id="roleBadge"></span>
+            <button onclick="logout()">Abmelden</button>
+        </div>
+    </nav>
+
+    <div class="tabs" id="tabs">
+        <div class="tab active" data-cat="arbeit" onclick="switchTab(this)">Arbeiten lernen</div>
+        <div class="tab" data-cat="hausaufgaben" onclick="switchTab(this)">Hausaufgaben</div>
+        <div class="tab" data-cat="buecher" onclick="switchTab(this)">B&uuml;cher</div>
+    </div>
+
+    <div class="content" id="content"></div>
+</div>
+
+<script>
+    const HOST_PW = '1234567890';
+    let role = null;
+    let currentCat = 'arbeit';
+
+    const SUPABASE_URL = 'https://kxjcgybmngwsrtxysdyx.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4amNneWJtbmd3c3J0eHlzZHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NTk4NzQsImV4cCI6MjA4OTAzNTg3NH0.xIw4eOr2FkeR3DVByu5uTOcVwIxvdoOU5CvqYF1zD0g';
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function loginStudent() {
+        role = 'student';
+        showApp();
+    }
+    function loginHost() {
+        const pw = document.getElementById('hostPassword').value;
+        if (pw === HOST_PW) {
+            role = 'host';
+            document.getElementById('hostError').style.display = 'none';
+            showApp();
+        } else {
+            document.getElementById('hostError').style.display = 'block';
+        }
+    }
+    function logout() {
+        role = null;
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('app').style.display = 'none';
+        document.getElementById('hostPassword').value = '';
+    }
+
+    function showApp() {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        const badge = document.getElementById('roleBadge');
+        badge.textContent = role === 'host' ? 'Host' : 'Student';
+        badge.className = 'role-badge ' + (role === 'host' ? 'role-host' : 'role-student');
+        renderContent();
+    }
+
+    function switchTab(el) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        currentCat = el.dataset.cat;
+        renderContent();
+    }
+
+    const catLabels = { arbeit: 'Arbeiten lernen', hausaufgaben: 'Hausaufgaben', buecher: 'B\u00fccher' };
+    const catTags = { arbeit: 'tag-arbeit', hausaufgaben: 'tag-hausaufgaben', buecher: 'tag-buecher' };
+
+    async function renderContent() {
+        const c = document.getElementById('content');
+
+        const { data: offers, error } = await db
+            .from('offers')
+            .select('*')
+            .eq('category', currentCat)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            c.innerHTML = '<div class="empty">Fehler beim Laden: ' + esc(error.message) + '</div>';
+            return;
+        }
+
+        let html = '';
+
+        if (role === 'host') {
+            html += `
+                <div class="success-msg" id="successMsg">Angebot erfolgreich erstellt!</div>
+                <h2 style="margin-bottom:16px">Neues Angebot erstellen</h2>
+                <div class="form-group">
+                    <label>Titel</label>
+                    <input type="text" id="offerTitle" placeholder="z.B. Mathe Nachhilfe">
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung</label>
+                    <textarea id="offerDesc" placeholder="Beschreibe dein Angebot..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Preis (&euro;)</label>
+                    <input type="number" id="offerPrice" placeholder="0.00" min="0" step="0.01">
+                </div>
+                <button class="submit-btn" onclick="createOffer()">Angebot erstellen</button>
+                <hr style="margin:32px 0;border:none;border-top:2px solid #f0f0f0">
+            `;
+        }
+
+        if (offers.length === 0) {
+            html += `<div class="empty">Keine Angebote in "${catLabels[currentCat]}" vorhanden.</div>`;
+        } else {
+            html += '<div class="offers-grid">';
+            offers.forEach(o => {
+                html += `
+                    <div class="offer-card">
+                        ${role === 'host' ? `<button class="delete-btn" onclick="deleteOffer(${o.id})" title="L\u00f6schen">&times;</button>` : ''}
+                        <span class="category-tag ${catTags[o.category]}">${catLabels[o.category]}</span>
+                        <h3>${esc(o.title)}</h3>
+                        <div class="desc">${esc(o.description)}</div>
+                        <div class="price">${parseFloat(o.price).toFixed(2)} &euro;</div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+
+        c.innerHTML = html;
+    }
+
+    async function createOffer() {
+        const title = document.getElementById('offerTitle').value.trim();
+        const desc = document.getElementById('offerDesc').value.trim();
+        const price = document.getElementById('offerPrice').value;
+
+        if (!title || !desc || !price) { alert('Bitte alle Felder ausf\u00fcllen!'); return; }
+
+        const { error } = await db.from('offers').insert({
+            category: currentCat,
+            title,
+            description: desc,
+            price: parseFloat(price)
+        });
+
+        if (error) { alert('Fehler: ' + error.message); return; }
+
+        await renderContent();
+
+        const msg = document.getElementById('successMsg');
+        if (msg) {
+            msg.style.display = 'block';
+            setTimeout(() => msg.style.display = 'none', 2500);
+        }
+    }
+
+    async function deleteOffer(id) {
+        if (!confirm('Angebot wirklich l\u00f6schen?')) return;
+        await db.from('offers').delete().eq('id', id);
+        renderContent();
+    }
+
+    function esc(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+</script>
+
+</body>
+</html>
